@@ -3,9 +3,9 @@ import sqlite3
 import pandas as pd
 import plotly.express as px
 
-options_year = ["2019","2020","2021","2022"]
+# options_year = ["2019","2020","2021","2022"]
 
-selected_year = st.selecto
+# selected_year = st.selecto
 
 # Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).
 
