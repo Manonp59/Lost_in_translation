@@ -122,6 +122,50 @@ def scatterplot():
     g.update_yaxes(title_text="Nombre d'objets trouvés")
     g.update_layout(title="Nombre d'objets trouvés en fonction de la température")
     st.plotly_chart(g,use_container_width=True)
+    
+    
+def saison():
+
+    connexion = sqlite3.connect("base.db")
+    curseur = connexion.cursor()
+    df = pd.DataFrame(curseur.execute("""
+    UPDATE objets_trouves
+    SET saison =
+    CASE
+        WHEN strftime('%m', date) BETWEEN '03' AND '05' THEN 'Printemps'
+        WHEN strftime('%m', date) BETWEEN '06' AND '08' THEN 'Été'
+        WHEN strftime('%m', date) BETWEEN '09' AND '11' THEN 'Automne'
+        ELSE 'Hiver'
+    END;
+                                    
+                    """))
+    connexion.commit()
+    connexion.close()
+    
+    saisons = ["Printemps","Été","Automne","Hiver"]
+    dico = {}
+    for saison in saisons:
+
+        connexion = sqlite3.connect("base.db")
+        curseur = connexion.cursor()
+        df = pd.DataFrame(curseur.execute(f"""
+        SELECT date AS date, COUNT(id) AS nb_objets FROM Objets_trouves WHERE saison = "{saison}" GROUP BY date
+                                        
+                        """),columns=['date','nb_objets'])
+        connexion.commit()
+        connexion.close()
+
+        dico[saison]=df['nb_objets'].median()
+        
+    saisons = list(dico.keys())
+    temperatures = list(dico.values())
+
+    barplot = px.bar(x=saisons,y=temperatures)
+    barplot.update_xaxes(title_text="Saisons")
+    barplot.update_yaxes(title_text="Médiane journalière du nombre d'objets trouvés")
+    barplot.update_layout(title="Médiane journalière du nombre d'objets trouvés en fonction de la saison")
+    st.plotly_chart(barplot,use_container_width=False)
+
 
 if __name__ == "__main__":
     histogrammes()
@@ -138,4 +182,5 @@ if __name__ == "__main__":
     
     scatterplot()
     st.write("Il n'y a pas de corrélation entre la température et le nombre d'objets trouvés.")
-    
+    saison()
+    st.write("Il n'y a pas de corrélation entre la saison et le nombre d'objets trouvés.")
