@@ -9,6 +9,7 @@ import folium
 import numpy as np
 import branca
 from streamlit_folium import folium_static
+from main import maj_db
 
 def histogramme():
     # Se connecter à la base de données
@@ -17,7 +18,7 @@ def histogramme():
     # Définir la fonction qui génère le graphique Plotly
     def generer_graphique(objets_inclus):
         # Récupérer les données entre 2019 et 2022
-        sql = "SELECT strftime('%Y-%W', date) AS semaine, type, COUNT(*) AS nb_objets FROM Objets_trouves WHERE type IN ({})  AND date BETWEEN '2019-01-01' AND '2022-12-31' GROUP BY semaine".format(', '.join(['?']*len(objets_inclus)))
+        sql = "SELECT strftime('%Y-%W', date) AS semaine, type, COUNT(*) AS nb_objets FROM Objets_trouves WHERE type IN ({}) GROUP BY semaine".format(', '.join(['?']*len(objets_inclus)))
         df = pd.read_sql_query(sql, connexion, params=objets_inclus)
 
         # Générer le graphique Plotly
@@ -236,38 +237,43 @@ def groupbar():
     # Fermeture de la connexion à la base de données
     connexion.close()
     st.plotly_chart(fig,use_container_width=True)
+    
 
 
-# Affichage du streamlit
-if __name__ == "__main__":
-    st.set_page_config(layout="wide")
-    st.title("Brief Lost in Translation")
-    
-    st.write("<h2> Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).</h2>",unsafe_allow_html = True)
 
-    histogramme()
+
+st.set_page_config(layout="wide")
+st.title("Brief Lost in Translation")
+
+st.write("<h2> Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).</h2>",unsafe_allow_html = True)
+
+histogramme()
+
+options_objects = ["Porte-monnaie / portefeuille, argent, titres","Livres, articles de papéterie","Vêtements, chaussures","Bagagerie: sacs, valises, cartables","Pièces d'identités et papiers personnels","Appareils électroniques, informatiques, appareils photo","Articles d'enfants, de puériculture","Optique","Instruments de musique","Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres","Clés, porte-clés, badge magnétique","Vélos, trottinettes, accessoires 2 roues","Parapluies","Tous"]
+selected_object = st.selectbox("Sélectionnez un type d'objet", options_objects,key="object1")
+line(selected_object)
+
+st.write("<h2>Afficher une carte de Paris avec le nombre d’objets trouvés en fonction de la fréquentation de voyageur de chaque gare. Possibilité de faire varier par année et par type d’objets</h2>", unsafe_allow_html=True)
+options_year = ["2019","2020","2021","2022"]
+selected_year = st.selectbox("Sélectionnez une année", options_year)
+options_objects2 = ["Porte-monnaie / portefeuille, argent, titres","Livres, articles de papéterie","Vêtements, chaussures","Bagagerie: sacs, valises, cartables","Pièces d'identités et papiers personnels","Appareils électroniques, informatiques, appareils photo","Articles d'enfants, de puériculture","Optique","Instruments de musique","Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres","Clés, porte-clés, badge magnétique","Vélos, trottinettes, accessoires 2 roues","Parapluies","Tous"]
+selected_object2 = st.selectbox("Sélectionnez un type d'objet", options_objects2,key="object2")
+show_map(requete(selected_year,selected_object2))
+
+st.write("<h2>Afficher le nombre d’objets trouvés en fonction de la température sur un scatterplot. Est ce que le nombre d’objets perdus est corrélé à la temperature d'après ce graphique?</h2>",unsafe_allow_html=True)
+scatterplot()
+st.write("Il n'y a pas de corrélation entre la température et le nombre d'objets trouvés.")
+
+st.write("<h2>Quelle est la médiane du nombre d’objets trouvés en fonction de la saison? Il y a t il une correlation entre ces deux variables d'après le graphique?</h2>",unsafe_allow_html=True)
+saison()
+st.write("Il n'y a pas de corrélation entre la saison et le nombre d'objets trouvés.")
+
+st.write("<h2>Affichez le nombre d'objets trouvés en fonction du type de d'objet et de la saison sur un graphique. Il y a t il une correlation entre ces deux variables d'après le graphique?</h2>",unsafe_allow_html=True)
+groupbar()
+st.write("Il n'y a pas de corrélation entre la saison et le type d'objets trouvés.")
+
+st.write("<h2>Conclusion : Il ne semble pas y avoir de corrélations entre la température et le nombre d'objets perdus. La saison peut influencer certains types d'objets comme les parapluies (plus utilisés en automne et donc plus souvent oubliés en automne) ou les articles de camping (plus utilisés en été donc plus souvent oubliés en été).</h2>",unsafe_allow_html=True)
+
+if st.button('Cliquez ici pour mettre à jour les données'):
+    maj_db()
     
-    options_objects = ["Porte-monnaie / portefeuille, argent, titres","Livres, articles de papéterie","Vêtements, chaussures","Bagagerie: sacs, valises, cartables","Pièces d'identités et papiers personnels","Appareils électroniques, informatiques, appareils photo","Articles d'enfants, de puériculture","Optique","Instruments de musique","Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres","Clés, porte-clés, badge magnétique","Vélos, trottinettes, accessoires 2 roues","Parapluies","Tous"]
-    selected_object = st.selectbox("Sélectionnez un type d'objet", options_objects,key="object1")
-    line(selected_object)
-    
-    st.write("<h2>Afficher une carte de Paris avec le nombre d’objets trouvés en fonction de la fréquentation de voyageur de chaque gare. Possibilité de faire varier par année et par type d’objets</h2>", unsafe_allow_html=True)
-    options_year = ["2019","2020","2021","2022"]
-    selected_year = st.selectbox("Sélectionnez une année", options_year)
-    options_objects2 = ["Porte-monnaie / portefeuille, argent, titres","Livres, articles de papéterie","Vêtements, chaussures","Bagagerie: sacs, valises, cartables","Pièces d'identités et papiers personnels","Appareils électroniques, informatiques, appareils photo","Articles d'enfants, de puériculture","Optique","Instruments de musique","Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres","Clés, porte-clés, badge magnétique","Vélos, trottinettes, accessoires 2 roues","Parapluies","Tous"]
-    selected_object2 = st.selectbox("Sélectionnez un type d'objet", options_objects2,key="object2")
-    show_map(requete(selected_year,selected_object2))
-    
-    st.write("<h2>Afficher le nombre d’objets trouvés en fonction de la température sur un scatterplot. Est ce que le nombre d’objets perdus est corrélé à la temperature d'après ce graphique?</h2>",unsafe_allow_html=True)
-    scatterplot()
-    st.write("Il n'y a pas de corrélation entre la température et le nombre d'objets trouvés.")
-    
-    st.write("<h2>Quelle est la médiane du nombre d’objets trouvés en fonction de la saison? Il y a t il une correlation entre ces deux variables d'après le graphique?</h2>",unsafe_allow_html=True)
-    saison()
-    st.write("Il n'y a pas de corrélation entre la saison et le nombre d'objets trouvés.")
-    
-    st.write("<h2>Affichez le nombre d'objets trouvés en fonction du type de d'objet et de la saison sur un graphique. Il y a t il une correlation entre ces deux variables d'après le graphique?</h2>",unsafe_allow_html=True)
-    groupbar()
-    st.write("Il n'y a pas de corrélation entre la saison et le type d'objets trouvés.")
-    
-    st.write("<h2>Conclusion : Il ne semble pas y avoir de corrélations entre la température et le nombre d'objets perdus. La saison peut influencer certains types d'objets comme les parapluies (plus utilisés en automne et donc plus souvent oubliés en automne) ou les articles de camping (plus utilisés en été donc plus souvent oubliés en été).</h2>",unsafe_allow_html=True)
