@@ -303,6 +303,7 @@ st.write("Il n'y a pas de corrélation entre la saison et le type d'objets trouv
 
 st.write("<h2>Conclusion : Il ne semble pas y avoir de corrélations entre la température et le nombre d'objets perdus. La saison peut influencer certains types d'objets comme les parapluies (plus utilisés en automne et donc plus souvent oubliés en automne) ou les articles de camping (plus utilisés en été donc plus souvent oubliés en été).</h2>",unsafe_allow_html=True)
 
-if st.button('Cliquez ici pour mettre à jour les données'):
+
+if st.button("Cliquez ici pour mettre à jour les données"):
     maj_db()
-    
+
