@@ -10,6 +10,7 @@ import numpy as np
 import statsmodels.api as sm
 from streamlit_folium import folium_static
 
+
 def histogramme():
     # Se connecter à la base de données
     connexion = sqlite3.connect("base.db")
@@ -42,16 +43,21 @@ def histogramme():
 # Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).
 def line(selected_object):
     connexion = sqlite3.connect("base.db")
-    df = pd.read_sql_query(f"""SELECT strftime('%Y-%W', date(date, '-6 days')) || '-1' AS semaine, COUNT(*) AS nb_objets_perdus 
-                          FROM Objets_trouves 
-                          WHERE type =  '{selected_object}'
-                          AND date >= date('now', '-4 years')
-                          GROUP BY semaine""", connexion)
+    if selected_object == "Tous":
+        df_semaine = pd.read_sql_query("""SELECT strftime('%Y-%W', date) AS semaine, COUNT(*) AS nb_objets_trouves 
+                                FROM Objets_trouves 
+                                GROUP BY semaine""", connexion)
+    else :
+        df_semaine = pd.read_sql_query(f"""SELECT strftime('%Y-%W', date) AS semaine, COUNT(*) AS nb_objets_trouves 
+                                FROM Objets_trouves 
+                                WHERE type = "{selected_object}"
+                                GROUP BY semaine""", connexion)
 
-    fig = px.line(df, x='semaine', y='nb_objets_perdus')
+
+    fig = px.line(df_semaine, x='semaine', y='nb_objets_trouves')
     fig.update_xaxes(title_text='Date')
-    fig.update_yaxes(title_text="Nombre d'objets perdus")
-    fig.update_layout(title="Nombre d'objets perdus par semaine (4 dernières années)")
+    fig.update_yaxes(title_text="Nombre d'objets trouvés")
+    fig.update_layout(title="Nombre d'objets trouvés par semaine")
 
     st.plotly_chart(fig, use_container_width=True)
     connexion.close()
@@ -129,8 +135,32 @@ def scatterplot():
 
 
 if __name__ == "__main__":
-    st.set_page_config(layout="wide")
+    st.set_page_config(page_title="Titre de la page", page_icon="icone.png", layout="wide", initial_sidebar_state="expanded")
+
+    def add_bg_from_url():
+        st.markdown(
+            f"""
+            <style>
+            .stApp {{
+                background-attachment: fixed;
+                background-size: cover
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+    
+
+
+
+    st.write("<h1 style='text-align: center; font-weight: bold;'>Titre du graphique</h1>", unsafe_allow_html=True)
+    add_bg_from_url()
+
     st.title("Brief Lost in Translation")
+
+    st.markdown("<span style='color:blue;text-decoration:underline;'>Mon texte coloré et souligné</span>", unsafe_allow_html=True)
+
     
     st.write("<h2> Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).</h2>",unsafe_allow_html = True)
 
