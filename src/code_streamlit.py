@@ -10,6 +10,7 @@ import numpy as np
 import branca
 from streamlit_folium import folium_static
 from main import maj_db
+import statsmodels.api as sm
 
 def histogramme():
     # Se connecter à la base de données
@@ -57,9 +58,10 @@ def line (selected_object):
     line = px.line(df_semaine, x='semaine', y='nb_objets_trouves')
     line.update_xaxes(title_text='Date')
     line.update_yaxes(title_text="Nombre d'objets trouvés")
-    line.update_layout(title="Nombre d'objets trouvés par semaine")
+    line.update_layout(title="Nombre d'objets trouvés par semaine",width=1500)
 
-    st.plotly_chart(line, use_container_witdh=True)
+    st.plotly_chart(line, witdh=-1)
+    
 
     connexion.close()
 
@@ -154,13 +156,40 @@ def scatterplot():
                                     """))
     connexion.commit()
     connexion.close()
-    
-    # Création du scatterplot
-    g = px.scatter(data_frame=df,x=1,y=2)
+
+    # Création du scatterplot avec une droite de régression linéaire
+    x = df.iloc[:, 1] # sélection de la colonne "temperature" comme variable indépendante
+    y = df.iloc[:, 2] # sélection de la colonne "nb_objets" comme variable dépendante
+    model = sm.OLS(y, sm.add_constant(x)).fit() # ajustement d'un modèle de régression linéaire
+        
+    # Création du scatterplot avec une droite de régression linéaire
+    g = px.scatter(data_frame=df,x=1,y=2,trendline="ols")
     g.update_xaxes(title_text='Température')
     g.update_yaxes(title_text="Nombre d'objets trouvés")
     g.update_layout(title="Nombre d'objets trouvés en fonction de la température")
+    
+    # Affichage du scatterplot dans Streamlit
     st.plotly_chart(g,use_container_width=True)
+
+        # Vérification si la droite de régression existe avant de récupérer le coefficient de détermination R²
+    if len(g['data']) > 1:
+        coeff_determination = model.rsquared
+        st.write(f"Le coefficient de détermination R² est : {coeff_determination:.2f}")
+        if coeff_determination < 0.1:
+            st.write("D'après le graphique et le coefficient de détermination R², On constate que la corrélation entre la température et les objets trouvés est très faible.")
+        elif 0.1 <= coeff_determination < 0.3:
+            st.write("D'après le graphique et le coefficient de détermination R², On constate que la corrélation est faible.")
+        elif 0.3 <= coeff_determination < 0.5:
+            st.write("D'après le graphique et le coefficient de détermination R², On constate que la corrélation est modérée.")
+        elif 0.5 <= coeff_determination < 0.7:
+            st.write("D'après le graphique et le coefficient de détermination R², On constate que la corrélation est forte.")
+        elif 0.7 <= coeff_determination < 0.9:
+            st.write("D'après le graphique et le coefficient de détermination R², On constate que la corrélation est très forte.")
+        else:
+            st.write("D'après le graphique et le coefficient de détermination R², On constate que la corrélation est excellente.")
+
+    else:
+        st.write("Attention : La droite de régression n'a pas pu être tracée.")
     
 ### Quelle est la médiane du nombre d’objets trouvés en fonction de la saison? Il y a t il une correlation entre ces deux variables d'après le graphique?
     
