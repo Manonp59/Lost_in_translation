@@ -3,11 +3,44 @@ import sqlite3
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.express as px 
+import streamlit as st
+import folium
+import numpy as np
+import branca
+from streamlit_folium import folium_static
+
+def histogramme():
+    # Se connecter à la base de données
+    connexion = sqlite3.connect("base.db")
+
+    # Définir la fonction qui génère le graphique Plotly
+    def generer_graphique(objets_inclus):
+        # Récupérer les données entre 2019 et 2022
+        sql = "SELECT strftime('%Y-%W', date) AS semaine, type, COUNT(*) AS nb_objets FROM Objets_trouves WHERE type IN ({})  AND date BETWEEN '2019-01-01' AND '2022-12-31' GROUP BY semaine".format(', '.join(['?']*len(objets_inclus)))
+        df = pd.read_sql_query(sql, connexion, params=objets_inclus)
+
+        # Générer le graphique Plotly
+        fig = px.histogram(df, x="semaine", y="nb_objets", color = 'type', color_discrete_sequence=px.colors.qualitative.Alphabet, nbins=1000000)
+        fig.update_layout(xaxis=dict(type='category'))
+        fig.update_layout(width=2000, height=600)
+        
+        return fig
+
+    # Utiliser la barre latérale pour créer une liste déroulante permettant de sélectionner les types d'objets à inclure
+    objets_inclus = st.multiselect('Sélectionnez les types d\'objets à inclure :', ['Porte-monnaie / portefeuille, argent, titres', 'Livres, articles de papéterie' , 'Vêtements, chaussures', 'Bagagerie: sacs, valises, cartables', "Pièces d'identités et papiers personnels" , 'Appareils électroniques, informatiques, appareils photo', "Articles d'enfants, de puériculture", "Optique", "Divers", "Instruments de musique", "Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres", "Clés, porte-clés, badge magnétique", "Vélos, trottinettes, accessoires 2 roues", "Parapluies" ])
+
+    # Appeler la fonction pour générer le graphique Plotly en fonction des types d'objets sélectionnés
+    fig = generer_graphique(objets_inclus)
+
+    # Afficher le graphique Plotly dans un conteneur
+    with st.container():
+        st.plotly_chart(fig)
 
 
 
 # Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).
-def histogrammes (selected_object):
+def line (selected_object):
     connexion = sqlite3.connect("base.db")
     if selected_object == "Tous":
         df_semaine = pd.read_sql_query("""SELECT strftime('%Y-%W', date) AS semaine, COUNT(*) AS nb_objets_trouves 
@@ -19,17 +52,12 @@ def histogrammes (selected_object):
                                 WHERE type = "{selected_object}"
                                 GROUP BY semaine""", connexion)
 
-    hist = px.histogram(df_semaine, x='semaine', y='nb_objets_trouves', nbins=300)
-    hist.update_xaxes(title_text='Date')
-    hist.update_yaxes(title_text="Nombre d'objets trouvés")
-    hist.update_layout(title="Nombre d'objets trouvés par semaine")
 
     line = px.line(df_semaine, x='semaine', y='nb_objets_trouves')
     line.update_xaxes(title_text='Date')
     line.update_yaxes(title_text="Nombre d'objets trouvés")
     line.update_layout(title="Nombre d'objets trouvés par semaine")
 
-    st.plotly_chart(hist,use_container_width=True)
     st.plotly_chart(line, use_container_witdh=True)
 
     connexion.close()
@@ -37,22 +65,10 @@ def histogrammes (selected_object):
 
 # Afficher une carte de Paris avec le nombre d’objets trouvés en fonction de la fréquentation de voyageur de chaque gare. Possibilité de faire varier par année et par type d’objets
 
-import folium
-import sqlite3
-import pandas as pd
-import numpy as np
-import json
-import branca
-from streamlit_folium import folium_static
-from folium.plugins import PolyLineTextPath
-
-
-
-# Connexion à la base de données
-connexion = sqlite3.connect("base.db")
-
 # Création de la requête qui récupère les données dans la base de données
 def requete(selected_year, selected_object):
+    # Connexion à la base de données
+    connexion = sqlite3.connect("base.db")
     # Pour tous les types d'objets confondus
     if selected_object == "Tous":
         df = pd.read_sql_query(f"""SELECT Gares.nom_gare, Gares.latitude, Gares.longitude, 
@@ -227,11 +243,13 @@ if __name__ == "__main__":
     st.set_page_config(layout="wide")
     st.title("Brief Lost in Translation")
     
-    
     st.write("<h2> Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).</h2>",unsafe_allow_html = True)
+
+    histogramme()
+    
     options_objects = ["Porte-monnaie / portefeuille, argent, titres","Livres, articles de papéterie","Vêtements, chaussures","Bagagerie: sacs, valises, cartables","Pièces d'identités et papiers personnels","Appareils électroniques, informatiques, appareils photo","Articles d'enfants, de puériculture","Optique","Instruments de musique","Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres","Clés, porte-clés, badge magnétique","Vélos, trottinettes, accessoires 2 roues","Parapluies","Tous"]
     selected_object = st.selectbox("Sélectionnez un type d'objet", options_objects,key="object1")
-    histogrammes(selected_object)
+    line(selected_object)
     
     st.write("<h2>Afficher une carte de Paris avec le nombre d’objets trouvés en fonction de la fréquentation de voyageur de chaque gare. Possibilité de faire varier par année et par type d’objets</h2>", unsafe_allow_html=True)
     options_year = ["2019","2020","2021","2022"]
