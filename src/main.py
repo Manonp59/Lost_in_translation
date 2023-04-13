@@ -211,12 +211,6 @@ def import_data_temperature():
     connexion.commit()
     connexion.close()
     
-def clean(table) -> None:
-        connexion = sqlite3.connect("base.db")
-        curseur = connexion.cursor()
-        curseur.execute(f"""DROP TABLE {table}""")
-        connexion.commit()
-        connexion.close()
         
 def get_last_date(table) -> str:
     connexion = sqlite3.connect("base.db")
@@ -238,26 +232,6 @@ def get_last_date(table) -> str:
     return next_day_string
  
     
-        
-# def get_last_date(table) -> str:
-#     connexion = sqlite3.connect("base.db")
-#     curseur = connexion.cursor()
-#     curseur.execute(f"""SELECT MAX(date) FROM {table}""")
-#     date_string = str(curseur.fetchone()[0])
-#     connexion.commit()
-#     connexion.close()
-#     return date_string
-
-# def parse_date(start_date: str, end_date: str) -> Tuple[datetime, datetime]:
-#         start_parse = parse(str(start_date))
-#         end_parse = parse(str(end_date))
-#         return start_parse, end_parse
-
-# create_db()
-
-# clean("Temperatures")
-# create_db()
-# import_data_temperature("2023-01-01","now")
 
 
 def maj_db():
