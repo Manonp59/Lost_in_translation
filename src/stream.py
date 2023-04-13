@@ -9,58 +9,8 @@ import folium
 import numpy as np
 import statsmodels.api as sm
 from streamlit_folium import folium_static
+import matplotlib.pyplot as plt
 
-
-def histogramme():
-    # Se connecter à la base de données
-    connexion = sqlite3.connect("base.db")
-
-    # Définir la fonction qui génère le graphique Plotly
-    def generer_graphique(objets_inclus):
-        # Récupérer les données entre 2019 et 2022
-        sql = "SELECT strftime('%Y-%W', date) AS semaine, type, COUNT(*) AS nb_objets FROM Objets_trouves WHERE type IN ({})  AND date BETWEEN '2019-01-01' AND '2022-12-31' GROUP BY semaine".format(', '.join(['?']*len(objets_inclus)))
-        df = pd.read_sql_query(sql, connexion, params=objets_inclus)
-
-        # Générer le graphique Plotly
-        fig = px.histogram(df, x="semaine", y="nb_objets", color = 'type', color_discrete_sequence=px.colors.qualitative.Alphabet, nbins=1000000)
-        fig.update_layout(xaxis=dict(type='category'))
-        fig.update_layout(width=2000, height=600)
-        
-        return fig
-
-    # Utiliser la barre latérale pour créer une liste déroulante permettant de sélectionner les types d'objets à inclure
-    objets_inclus = st.multiselect('Sélectionnez les types d\'objets à inclure :', ['Porte-monnaie / portefeuille, argent, titres', 'Livres, articles de papéterie' , 'Vêtements, chaussures', 'Bagagerie: sacs, valises, cartables', "Pièces d'identités et papiers personnels" , 'Appareils électroniques, informatiques, appareils photo', "Articles d'enfants, de puériculture", "Optique", "Divers", "Instruments de musique", "Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres", "Clés, porte-clés, badge magnétique", "Vélos, trottinettes, accessoires 2 roues", "Parapluies" ])
-
-    # Appeler la fonction pour générer le graphique Plotly en fonction des types d'objets sélectionnés
-    fig = generer_graphique(objets_inclus)
-
-    # Afficher le graphique Plotly dans un conteneur
-    with st.container():
-        st.plotly_chart(fig)
-
-
-
-# Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).
-def line(selected_object):
-    connexion = sqlite3.connect("base.db")
-    if selected_object == "Tous":
-        df_semaine = pd.read_sql_query("""SELECT strftime('%Y-%W', date) AS semaine, COUNT(*) AS nb_objets_trouves 
-                                FROM Objets_trouves 
-                                GROUP BY semaine""", connexion)
-    else :
-        df_semaine = pd.read_sql_query(f"""SELECT strftime('%Y-%W', date) AS semaine, COUNT(*) AS nb_objets_trouves 
-                                FROM Objets_trouves 
-                                WHERE type = "{selected_object}"
-                                GROUP BY semaine""", connexion)
-
-
-    fig = px.line(df_semaine, x='semaine', y='nb_objets_trouves')
-    fig.update_xaxes(title_text='Date')
-    fig.update_yaxes(title_text="Nombre d'objets trouvés")
-    fig.update_layout(title="Nombre d'objets trouvés par semaine")
-
-    st.plotly_chart(fig, use_container_width=True)
-    connexion.close()
 
 
 
@@ -121,54 +71,57 @@ def scatterplot():
 
 
 
+def groupbar():
+    # Connexion à la base de données
+    connexion = sqlite3.connect("base.db")
+
+    # Récupération des données à partir de la base de données
+    df = pd.read_sql_query("""SELECT Objets_trouves.type, Objets_trouves.saison, COUNT(id) AS nb_objets
+                            FROM Objets_trouves
+                            GROUP BY type, saison;""", connexion)
+
+    # Création d'une table pivot
+    pivot_data = df.pivot(index='type', columns='saison', values='nb_objets')
+
+    # Calcul de la moyenne pour chaque saison
+    moyenne = df.groupby('saison')['nb_objets'].mean()
+
+    # Création du graphique à barres
+    fig = go.Figure(data=[
+        go.Bar(name='Printemps', y=pivot_data.index, x=pivot_data['Printemps'],orientation='h'),
+        go.Bar(name='Été', y=pivot_data.index, x=pivot_data['Été'],orientation='h'),
+        go.Bar(name='Automne', y=pivot_data.index, x=pivot_data['Automne'],orientation='h'),
+        go.Bar(name='Hiver', y=pivot_data.index, x=pivot_data['Hiver'],orientation='h'),
+        go.Scatter(y=moyenne.index, x=moyenne.values, mode='lines', name='Moyenne')
+    ])
+    fig.update_layout(barmode='group',height=800,width=1500,title="Nombre d'objets trouvés selon le type et la saison")
+
+    # Fermeture de la connexion à la base de données
+    connexion.close()
+    st.plotly_chart(fig,use_container_width=True)
 
 
 
 
+st.title("Brief Lost in Translation")
 
-
-
-
-
-
-
-
-
-if __name__ == "__main__":
-    st.set_page_config(page_title="Titre de la page", page_icon="icone.png", layout="wide", initial_sidebar_state="expanded")
-
-    def add_bg_from_url():
-        st.markdown(
-            f"""
-            <style>
-            .stApp {{
-                background-attachment: fixed;
-                background-size: cover
-            }}
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-
-    
-
-
-
-    st.write("<h1 style='text-align: center; font-weight: bold;'>Titre du graphique</h1>", unsafe_allow_html=True)
-    add_bg_from_url()
-
-    st.title("Brief Lost in Translation")
-
-    st.markdown("<span style='color:blue;text-decoration:underline;'>Mon texte coloré et souligné</span>", unsafe_allow_html=True)
+st.markdown("<span style='color:blue;text-decoration:underline;'>Mon texte coloré et souligné</span>", unsafe_allow_html=True)
 
     
-    st.write("<h2> Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).</h2>",unsafe_allow_html = True)
+st.write("<h2> Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).</h2>",unsafe_allow_html = True)
 
-    histogramme()
+ 
     
-    options_objects = ["Porte-monnaie / portefeuille, argent, titres","Livres, articles de papéterie","Vêtements, chaussures","Bagagerie: sacs, valises, cartables","Pièces d'identités et papiers personnels","Appareils électroniques, informatiques, appareils photo","Articles d'enfants, de puériculture","Optique","Instruments de musique","Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres","Clés, porte-clés, badge magnétique","Vélos, trottinettes, accessoires 2 roues","Parapluies","Tous"]
-    selected_object = st.selectbox("Sélectionnez un type d'objet", options_objects,key="object1")
-    line(selected_object)
-    st.write("<h2>Nuage de points.</h2>",unsafe_allow_html = True)
+options_objects = ["Porte-monnaie / portefeuille, argent, titres","Livres, articles de papéterie","Vêtements, chaussures","Bagagerie: sacs, valises, cartables","Pièces d'identités et papiers personnels","Appareils électroniques, informatiques, appareils photo","Articles d'enfants, de puériculture","Optique","Instruments de musique","Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres","Clés, porte-clés, badge magnétique","Vélos, trottinettes, accessoires 2 roues","Parapluies","Tous"]
+  
+st.write("<h2>Nuage de points.</h2>",unsafe_allow_html = True)
 
-    scatterplot()
+scatterplot()
+
+st.write("<h2>Affichez le nombre d'objets trouvés en fonction du type de d'objet et de la saison sur un graphique. Il y a t il une correlation entre ces deux variables d'après le graphique?</h2>",unsafe_allow_html=True)
+
+groupbar()
+st.write("<h2>Boite à moustache </h2>",unsafe_allow_html=True)
+
+
+boite_moustache()
