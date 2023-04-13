@@ -9,10 +9,11 @@ import folium
 import numpy as np
 import branca
 from streamlit_folium import folium_static
-from main import maj_db
+from main import maj_db, get_last_date
 import statsmodels.api as sm
 import plotly.io as pio
 import sqlalchemy as db
+import datetime
 
 
 def histogramme():
@@ -397,6 +398,15 @@ def line_saison():
 st.set_page_config(layout="wide")
 st.title("Brief Lost in Translation")
 
+date = get_last_date("Objets_trouves")
+if datetime.datetime.strptime(date, "%Y-%m-%d").date() < datetime.date.today():
+    st.write(f"La dernière mise à jour date du {date}.")
+    if st.button("Cliquez ici pour mettre à jour les données"):
+        maj_db()
+else : 
+    st.write(f"Les données sont à jour.")
+
+
 st.write("<h2> Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).</h2>",unsafe_allow_html = True)
 
 histogramme()
@@ -432,6 +442,5 @@ st.write("<h2>Conclusion : Il ne semble pas y avoir de corrélations entre la sa
 
 
 
-if st.button("Cliquez ici pour mettre à jour les données"):
-    maj_db()
+
 
