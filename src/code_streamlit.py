@@ -11,6 +11,9 @@ import branca
 from streamlit_folium import folium_static
 from main import maj_db
 import statsmodels.api as sm
+import plotly.io as pio
+import sqlalchemy as db
+
 
 def histogramme():
     # Se connecter à la base de données
@@ -267,6 +270,126 @@ def groupbar():
     connexion.close()
     st.plotly_chart(fig,use_container_width=True)
     
+def scatterplot_2():
+    # Connexion à la base de données
+    connexion = sqlite3.connect("base.db")
+
+    # Récupération des données à partir de la base de données
+    df = pd.read_sql_query("""SELECT Objets_trouves.type, Objets_trouves.saison, COUNT(id) AS nb_objets
+                            FROM Objets_trouves
+                            GROUP BY type, saison;""", connexion)
+    
+    s = px.scatter(data_frame=df, x=df['type'], y=df['nb_objets'],color=df['saison'])
+    connexion.close()
+    st.plotly_chart(s, use_container_width=True)
+    
+    
+
+def boxplot():
+    import sqlite3
+import pandas as pd
+import plotly.express as px
+
+def boxplot():
+    # Connexion à la base de données
+    connexion = sqlite3.connect("base.db")
+
+    # Récupération des données à partir de la base de données
+    df = pd.read_sql_query("""SELECT Objets_trouves.type, Objets_trouves.saison, COUNT(id) AS nb_objets
+                            FROM Objets_trouves
+                            GROUP BY saison, type""", connexion)
+
+    # Création d'une liste des types d'objets
+    types_objets = df["type"].unique()
+
+    # Pour chaque type d'objet, créer un graphique boîte à moustaches avec une boîte pour chaque saison
+    for objet in types_objets:
+        df_objet = df[df["type"] == objet]
+        fig = px.box(df_objet, x="saison", y="nb_objets", height=400, width=700, points="all")
+        fig.update_layout(title=f"Nombre d'objets perdus par saison pour l'objet {objet}")
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Fermer la connexion à la base de données
+    connexion.close()
+    
+def barres_empilées():
+    
+    # Connexion à la base de données
+    conn = sqlite3.connect("base.db")
+
+    # Requête SQL pour récupérer les données
+    query = """
+    SELECT saison, type, count(*) as nb_objets
+    FROM objets_trouves
+    GROUP BY saison, type
+    """
+
+    # Récupération des données
+    cursor = conn.cursor()
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    # Création de la liste des saisons et des types d'objet uniques
+    saisons = list(set([row[0] for row in data]))
+    types_objet = list(set([row[1] for row in data]))
+
+    # Initialisation des listes de données pour chaque type d'objet
+    donnees = {type_objet: [] for type_objet in types_objet}
+
+    # Remplissage des listes de données pour chaque type d'objet
+    for saison in saisons:
+        nb_objets_total = sum([row[2] for row in data if row[0] == saison])
+        for type_objet in types_objet:
+            nb_objets_type = sum([row[2] for row in data if row[0] == saison and row[1] == type_objet])
+            proportion = nb_objets_type / nb_objets_total
+            donnees[type_objet].append(proportion)
+
+    # Création du graphique à barres empilées
+    fig = go.Figure()
+    for i, type_objet in enumerate(types_objet):
+        fig.add_trace(go.Bar(
+            x=saisons,
+            y=donnees[type_objet],
+            name=type_objet,
+        ))
+
+    # Configuration du layout du graphique
+    fig.update_layout(
+        title="Proportion d'objets trouvés par saison et par type d'objet",
+        xaxis_title="Saison",
+        yaxis_title="Proportion d'objets trouvés",
+        barmode="stack",
+        height=800
+    )
+
+    # Affichage du graphique
+    st.plotly_chart(fig,use_container_width=True)
+
+def line_saison():
+    # Connexion à la base de données
+    connexion = sqlite3.connect('base.db')
+    
+    # Requête SQL pour récupérer les données
+    query = '''
+            SELECT saison, type, COUNT(*) as nb_objets
+            FROM objets_trouves
+            GROUP BY saison, type
+            ORDER BY saison, type
+            '''
+    cursor = connexion.cursor()
+    df = pd.DataFrame(cursor.execute(query), columns=['saison','type','nb_objets'])
+
+    # Création du graphique en courbes
+    fig = px.line(df, x='saison', y='nb_objets', color='type',
+                title='Évolution du nombre d\'objets trouvés en fonction de la saison',
+                labels={'saison': 'Saison', 'nb_objets': 'Nombre d\'objets trouvés'},
+                height=800)
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+
+    
 
 
 
@@ -301,7 +424,12 @@ st.write("<h2>Affichez le nombre d'objets trouvés en fonction du type de d'obje
 groupbar()
 st.write("Il n'y a pas de corrélation entre la saison et le type d'objets trouvés.")
 
-st.write("<h2>Conclusion : Il ne semble pas y avoir de corrélations entre la température et le nombre d'objets perdus. La saison peut influencer certains types d'objets comme les parapluies (plus utilisés en automne et donc plus souvent oubliés en automne) ou les articles de camping (plus utilisés en été donc plus souvent oubliés en été).</h2>",unsafe_allow_html=True)
+line_saison()
+barres_empilées()
+
+st.write("<h2>Conclusion : Il ne semble pas y avoir de corrélations entre la saison et le type d'objets perdus. Les variations sont très faibles.</h2>",unsafe_allow_html=True)
+
+
 
 
 if st.button("Cliquez ici pour mettre à jour les données"):
