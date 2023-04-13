@@ -23,26 +23,34 @@ def histogramme():
     # Définir la fonction qui génère le graphique Plotly
     def generer_graphique(objets_inclus):
         # Récupérer les données entre 2019 et 2022
-        sql = "SELECT strftime('%Y-%W', date) AS semaine, type, COUNT(*) AS nb_objets FROM Objets_trouves WHERE type IN ({}) GROUP BY semaine".format(', '.join(['?']*len(objets_inclus)))
+        sql = "SELECT strftime('%Y-%W', date) AS semaine, type, COUNT() AS nb_objets FROM Objets_trouves WHERE type IN ({}) GROUP BY semaine, type".format(', '.join(['?']*len(objets_inclus)))
         df = pd.read_sql_query(sql, connexion, params=objets_inclus)
+
+        types_objet = list(set(df['type']))
+        semaine = list(set(df['semaine']))
+
+        # Calculer les données cumulatives pour chaque type d'objet
+        donnees = {}
+        for type_objet in types_objet:
+            donnees[type_objet] = []
+            cumul = 0
+            for s in semaine:
+                nb_objets = df[(df['type'] == type_objet) & (df['semaine'] == s)]['nb_objets'].sum()
+                cumul += nb_objets
+                donnees[type_objet].append(cumul)
 
         # Générer le graphique Plotly
         fig = px.histogram(df, x="semaine", y="nb_objets", color = 'type', color_discrete_sequence=px.colors.qualitative.Alphabet, nbins=1000000)
+
         fig.update_layout(xaxis=dict(type='category'))
         fig.update_layout(width=2000, height=600)
-        
+
         return fig
-
+    
     # Utiliser la barre latérale pour créer une liste déroulante permettant de sélectionner les types d'objets à inclure
-    objets_inclus = st.multiselect('Sélectionnez les types d\'objets à inclure :', ['Porte-monnaie / portefeuille, argent, titres', 'Livres, articles de papéterie' , 'Vêtements, chaussures', 'Bagagerie: sacs, valises, cartables', "Pièces d'identités et papiers personnels" , 'Appareils électroniques, informatiques, appareils photo', "Articles d'enfants, de puériculture", "Optique", "Divers", "Instruments de musique", "Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres", "Clés, porte-clés, badge magnétique", "Vélos, trottinettes, accessoires 2 roues", "Parapluies" ])
-
-    # Appeler la fonction pour générer le graphique Plotly en fonction des types d'objets sélectionnés
+    objets_inclus = st.multiselect("Sélectionnez les types d'objets à inclure :", ['Porte-monnaie / portefeuille, argent, titres', 'Livres, articles de papéterie' , 'Vêtements, chaussures', 'Bagagerie: sacs, valises, cartables', "Pièces d'identités et papiers personnels" , 'Appareils électroniques, informatiques, appareils photo', "Articles d'enfants, de puériculture", 'Optique', 'Divers', 'Instruments de musique', 'Articles médicaux','Articles de sport, loisirs, camping','Bijoux, montres', 'Clés, porte-clés, badge magnétique', 'Vélos, trottinettes, accessoires 2 roues', 'Parapluies' ])
     fig = generer_graphique(objets_inclus)
-
-    # Afficher le graphique Plotly dans un conteneur
-    with st.container():
-        st.plotly_chart(fig)
-
+    st.plotly_chart(fig)
 
 
 # Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).
@@ -411,16 +419,13 @@ st.write("<h2> Calculez entre 2019 et 2022 la somme du nombre d’objets trouvé
 
 histogramme()
 
-options_objects = ["Porte-monnaie / portefeuille, argent, titres","Livres, articles de papéterie","Vêtements, chaussures","Bagagerie: sacs, valises, cartables","Pièces d'identités et papiers personnels","Appareils électroniques, informatiques, appareils photo","Articles d'enfants, de puériculture","Optique","Instruments de musique","Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres","Clés, porte-clés, badge magnétique","Vélos, trottinettes, accessoires 2 roues","Parapluies","Tous"]
-selected_object = st.selectbox("Sélectionnez un type d'objet", options_objects,key="object1")
-line(selected_object)
 
 st.write("<h2>Afficher une carte de Paris avec le nombre d’objets trouvés en fonction de la fréquentation de voyageur de chaque gare. Possibilité de faire varier par année et par type d’objets</h2>", unsafe_allow_html=True)
 options_year = ["2019","2020","2021","2022"]
 selected_year = st.selectbox("Sélectionnez une année", options_year)
-options_objects2 = ["Porte-monnaie / portefeuille, argent, titres","Livres, articles de papéterie","Vêtements, chaussures","Bagagerie: sacs, valises, cartables","Pièces d'identités et papiers personnels","Appareils électroniques, informatiques, appareils photo","Articles d'enfants, de puériculture","Optique","Instruments de musique","Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres","Clés, porte-clés, badge magnétique","Vélos, trottinettes, accessoires 2 roues","Parapluies","Tous"]
-selected_object2 = st.selectbox("Sélectionnez un type d'objet", options_objects2,key="object2")
-show_map(requete(selected_year,selected_object2))
+options_object = ["Porte-monnaie / portefeuille, argent, titres","Livres, articles de papéterie","Vêtements, chaussures","Bagagerie: sacs, valises, cartables","Pièces d'identités et papiers personnels","Appareils électroniques, informatiques, appareils photo","Articles d'enfants, de puériculture","Optique","Instruments de musique","Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres","Clés, porte-clés, badge magnétique","Vélos, trottinettes, accessoires 2 roues","Parapluies","Tous"]
+selected_object = st.selectbox("Sélectionnez un type d'objet", options_object,key="object2")
+show_map(requete(selected_year,selected_object))
 
 st.write("<h2>Afficher le nombre d’objets trouvés en fonction de la température sur un scatterplot. Est ce que le nombre d’objets perdus est corrélé à la temperature d'après ce graphique?</h2>",unsafe_allow_html=True)
 scatterplot()
