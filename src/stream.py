@@ -12,7 +12,99 @@ from streamlit_folium import folium_static
 import matplotlib.pyplot as plt
 
 
+def histogramme():
+    # Se connecter à la base de données
+    connexion = sqlite3.connect("base.db")
 
+    # Définir la fonction qui génère le graphique Plotly
+    def generer_graphique(objets_inclus):
+        # Récupérer les données entre 2019 et 2022
+        sql = "SELECT strftime('%Y-%W', date) AS semaine, type, COUNT(*) AS nb_objets FROM Objets_trouves WHERE type IN ({}) GROUP BY semaine, type".format(', '.join(['?']*len(objets_inclus)))
+        df = pd.read_sql_query(sql, connexion, params=objets_inclus)
+
+        types_objet = list(set(df['type']))
+        semaine = list(set(df['semaine']))
+
+        # Calculer les données cumulatives pour chaque type d'objet
+        donnees = {}
+        for type_objet in types_objet:
+            donnees[type_objet] = []
+            cumul = 0
+            for s in semaine:
+                nb_objets = df[(df['type'] == type_objet) & (df['semaine'] == s)]['nb_objets'].sum()
+                cumul += nb_objets
+                donnees[type_objet].append(cumul)
+
+        # Générer le graphique Plotly
+        fig = px.histogram(df, x="semaine", y="nb_objets", color = 'type', color_discrete_sequence=px.colors.qualitative.Alphabet, nbins=1000000)
+
+        fig.update_layout(xaxis=dict(type='category'))
+        fig.update_layout(width=2000, height=600)
+       
+        return fig
+        
+    # Utiliser la barre latérale pour créer une liste déroulante permettant de sélectionner les types d'objets à inclure
+    objets_inclus = st.multiselect('Sélectionnez les types d\'objets à inclure :', ['Porte-monnaie / portefeuille, argent, titres', 'Livres, articles de papéterie' , 'Vêtements, chaussures', 'Bagagerie: sacs, valises, cartables', "Pièces d'identités et papiers personnels" , 'Appareils électroniques, informatiques, appareils photo', "Articles d'enfants, de puériculture", "Optique", "Divers", "Instruments de musique", "Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres", "Clés, porte-clés, badge magnétique", "Vélos, trottinettes, accessoires 2 roues", "Parapluies" ])
+    fig = generer_graphique(objets_inclus)
+    st.plotly_chart(fig)
+    
+
+   
+
+#_____________________________________________________________________________________________________________________________________________
+
+def barres_empilées():
+    
+    # Connexion à la base de données
+    conn = sqlite3.connect("base.db")
+
+    # Requête SQL pour récupérer les données
+    query = """
+    SELECT saison, type, count(*) as nb_objets
+    FROM objets_trouves
+    GROUP BY saison, type
+    """
+
+    # Récupération des données
+    cursor = conn.cursor()
+    cursor.execute(query)
+    data = cursor.fetchall()
+
+    # Création de la liste des saisons et des types d'objet uniques
+    saisons = list(set([row[0] for row in data]))
+    types_objet = list(set([row[1] for row in data]))
+
+    # Initialisation des listes de données pour chaque type d'objet
+    donnees = {type_objet: [] for type_objet in types_objet}
+
+    # Remplissage des listes de données pour chaque type d'objet
+    for saison in saisons:
+        nb_objets_total = sum([row[2] for row in data if row[0] == saison])
+        for type_objet in types_objet:
+            nb_objets_type = sum([row[2] for row in data if row[0] == saison and row[1] == type_objet])
+            proportion = nb_objets_type / nb_objets_total
+            donnees[type_objet].append(proportion)
+
+    # Création du graphique à barres empilées
+    fig = go.Figure()
+    for i, type_objet in enumerate(types_objet):
+        fig.add_trace(go.Bar(
+            x=saisons,
+            y=donnees[type_objet],
+            name=type_objet,
+        ))
+
+    # Configuration du layout du graphique
+    fig.update_layout(
+        title="Proportion d'objets trouvés par saison et par type d'objet",
+        xaxis_title="Saison",
+        yaxis_title="Proportion d'objets trouvés",
+        barmode="stack",
+        height=800
+    )
+
+    # Affichage du graphique
+    st.plotly_chart(fig,use_container_width=True)
 
 
 
@@ -103,13 +195,14 @@ def groupbar():
 
 
 
+
 st.title("Brief Lost in Translation")
 
 st.markdown("<span style='color:blue;text-decoration:underline;'>Mon texte coloré et souligné</span>", unsafe_allow_html=True)
 
     
 st.write("<h2> Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).</h2>",unsafe_allow_html = True)
-
+histogramme()
  
     
 options_objects = ["Porte-monnaie / portefeuille, argent, titres","Livres, articles de papéterie","Vêtements, chaussures","Bagagerie: sacs, valises, cartables","Pièces d'identités et papiers personnels","Appareils électroniques, informatiques, appareils photo","Articles d'enfants, de puériculture","Optique","Instruments de musique","Articles médicaux","Articles de sport, loisirs, camping","Bijoux, montres","Clés, porte-clés, badge magnétique","Vélos, trottinettes, accessoires 2 roues","Parapluies","Tous"]
@@ -123,5 +216,3 @@ st.write("<h2>Affichez le nombre d'objets trouvés en fonction du type de d'obje
 groupbar()
 st.write("<h2>Boite à moustache </h2>",unsafe_allow_html=True)
 
-
-boite_moustache()
