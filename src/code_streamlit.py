@@ -398,7 +398,45 @@ def line_saison():
 
 
 
+def saison_boxplot():
+
+    # Connexion à la base de données
+    connexion = sqlite3.connect("base.db")
+    curseur = connexion.cursor()
     
+    # Création d'une colonne saison dans la table Objets_trouves
+    curseur.execute("""
+    UPDATE objets_trouves
+    SET saison =
+    CASE
+        WHEN strftime('%m', date) BETWEEN '03' AND '05' THEN 'Printemps'
+        WHEN strftime('%m', date) BETWEEN '06' AND '08' THEN 'Été'
+        WHEN strftime('%m', date) BETWEEN '09' AND '11' THEN 'Automne'
+        ELSE 'Hiver'
+    END;
+                                    
+                    """)
+    connexion.commit()
+    connexion.close()
+    
+    # Récupération des données nécessaires dans la base de données
+    connexion = sqlite3.connect("base.db")
+    curseur = connexion.cursor()
+    df = pd.DataFrame(curseur.execute(f"""
+    SELECT date, saison, COUNT(id) AS nb_objets FROM Objets_trouves GROUP BY date
+                                    
+                    """),columns=['date','saison','nb_objets'])
+    connexion.commit()
+    connexion.close()
+
+
+    # Création d'un bowplot à partir des données  
+
+    boxplot = px.box(x=df['saison'],y=df['nb_objets'])
+    boxplot.update_xaxes(title_text="Saisons")
+    boxplot.update_yaxes(title_text="Nombre d'objets trouvés")
+    boxplot.update_layout(title="Nombre d'objets trouvés par jour en fonction de la saison")
+    st.plotly_chart(boxplot,use_container_width=False)
 
 
 
@@ -434,7 +472,7 @@ st.write("Il n'y a pas de corrélation entre la température et le nombre d'obje
 st.write("<h2>Quelle est la médiane du nombre d’objets trouvés en fonction de la saison? Il y a t il une correlation entre ces deux variables d'après le graphique?</h2>",unsafe_allow_html=True)
 saison()
 st.write("Il n'y a pas de corrélation entre la saison et le nombre d'objets trouvés.")
-
+saison_boxplot()
 st.write("<h2>Affichez le nombre d'objets trouvés en fonction du type de d'objet et de la saison sur un graphique. Il y a t il une correlation entre ces deux variables d'après le graphique?</h2>",unsafe_allow_html=True)
 groupbar()
 st.write("Il n'y a pas de corrélation entre la saison et le type d'objets trouvés.")
