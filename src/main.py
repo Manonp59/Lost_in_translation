@@ -7,75 +7,71 @@ from dotenv import load_dotenv
 import os
 import datetime
 from dateparser import parse
-from typing import Tuple
+from typing import List
 import streamlit as st
 
 
-def create_db ():
-    connexion = sqlite3.connect('base.db')
-    curseur = connexion.cursor()
-
-    # Création de la table Températures
-    curseur.execute(""" CREATE TABLE IF NOT EXISTS Temperatures (
-                        date TEXT PRIMARY KEY UNIQUE, 
-                        temperature_moyenne INTEGER
-                    )
-                    """)
-
-    # Création de la table Gares
-    curseur.execute(""" CREATE TABLE IF NOT EXISTS Gares (
-                        nom_gare TEXT PRIMARY KEY,
-                        latitude REAL,
-                        longitude REAL,
-                        frequentation_2019 INTEGER,
-                        frequentation_2020 INTEGER,
-                        frequentation_2021 INTEGER
-                    )
-                    """)
-
-    # Création de la table objets trouvés
-    curseur.execute(""" CREATE TABLE IF NOT EXISTS Objets_trouves (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
-                        date TEXT,
-                        type TEXT,
-                        nom_gare TEXT,
-                        code_uic INTEGER,
-                        FOREIGN KEY (nom_gare) REFERENCES Gares(nom_gare),
-                        FOREIGN KEY (date) REFERENCES Temperatures(date)
-                        )""")
-
-
-    connexion.commit()
-    connexion.close()
     
 
 
-def years_between_dates(start_date, end_date):
+def years_between_dates(start_date:str, end_date:str)-> List[int]:
+    """
+    Cette fonction prend en entrée une date de début et une date de fin (au format "YYYY-MM-DD") et renvoie une liste des années incluses dans cette période.
+
+    Args:
+        start_date (str): La date de début de la période, au format "YYYY-MM-DD".
+        end_date (str): La date de fin de la période, au format "YYYY-MM-DD". Si la valeur est None, la date d'aujourd'hui sera utilisée.
+
+    Returns:
+        List[int]: Une liste d'années incluses dans la période de temps.
+    """
+    # Création d'une liste vide pour stocker les années
     dates = []
+    
+    # Conversion des dates en objet datetime.date
     if end_date == "now":
         end_date = datetime.date.today()
     else:
         end_date = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
     start_date = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
+    
+    # Boucle pour ajouter chaque année à la liste
     for year in range(start_date.year, end_date.year + 1):
         date = datetime.date(year, 1, 1)
         if start_date <= date <= end_date:
             dates.append(year)
+            
+    # Retourne la liste des années
     return dates
 
   
 
 
 def import_data_objects ():
+    """
+    Cette fonction récupère les objets trouvés dans plusieurs gares de la SNCF, en utilisant l'API publique de la SNCF.
+    Les données sont ensuite stockées dans une base de données SQLite.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+    
+    # Deux parties de l'URL de l'API de la SNCF
     url1 = "https://ressources.data.sncf.com/api/records/1.0/search/?dataset=objets-trouves-restitution&q=gc_obo_gare_origine_r_name+%3D+%22"
     url2 = "&sort=date&facet=date&facet=gc_obo_date_heure_restitution_c&facet=gc_obo_gare_origine_r_name&facet=gc_obo_nature_c&facet=gc_obo_type_c&facet=gc_obo_nom_recordtype_sc_c&timezone=Europe%2FParis&rows=-1"
 
-
+    # Liste des gares pour lesquelles on récupère les données
     gares = ['Paris Gare de Lyon', 'Paris Montparnasse', 'Paris Gare du Nord', 'Paris Saint-Lazare', 'Paris Est', 'Paris Bercy', 'Paris Austerlitz']
+    
+    # Récupération de la date de la dernière mise à jour de la base de données et de la date du jour pour définir quelles années vont être requêtées
     start_date = get_last_date("Objets_trouves")
     end_date = datetime.datetime.now()
     date = years_between_dates(start_date,end_date.strftime("%Y-%m-%d"))
 
+    # Récupération des données pour chaque gare et pour chaque année
     data_frames = []
     for g in gares:
         for d in date:
@@ -86,28 +82,39 @@ def import_data_objects ():
             record_fields = [record["fields"] for record in records]
             data_frames.append(record_fields)
     
+    # Insertion des données dans la table Objets_trouves
     connexion = sqlite3.connect("base.db")
     curseur = connexion.cursor()
     for n in range(len(data_frames)):
         for item in data_frames[n]:
-        # Extract the variables and values
             date = item['date']
             type = item['gc_obo_type_c']
             gare = item['gc_obo_gare_origine_r_name']
             code_uic = item['gc_obo_gare_origine_r_code_uic_c']
             curseur.execute("INSERT INTO Objets_trouves (date,type,nom_gare,code_uic) VALUES (?,?, ?, ?)", (date, type,gare, code_uic))
-    curseur.execute("""UPDATE Objets_trouves
-    SET date = DATE(SUBSTR(date, 1, 10))""")
+    
+    # Changement du format de la date 
+    curseur.execute("""UPDATE Objets_trouves SET date = DATE(SUBSTR(date, 1, 10))""")
     connexion.commit()
     connexion.close()
     
 def import_data_frequentation ():
+    """
+    Cette fonction récupère les données de fréquentation des gares de Paris en 2019, 2020 et 2021 à partir de l'API SNCF
+    et les stocke dans une base de données SQLite.
+
+    Returns:
+        None
+    """
+    
+    # Récupération de l'URL qui va permettre la requête à l'API
     url_frequentation_gares = "https://ressources.data.sncf.com/api/records/1.0/search/?dataset=frequentation-gares&q=nom_gare%3D%27Paris%27&sort=nom_gare&rows=-1"
 
     response = requests.get(url_frequentation_gares)
 
     gare_frequentation_list = []
 
+    # Récupération des données
     if response.status_code == 200:
         data = response.json()
         for record in data['records']:
@@ -119,7 +126,8 @@ def import_data_frequentation ():
                         
     else:
         print("Une erreur s'est produite lors de la requête à l'API.")
-        
+    
+    # Insertion des données dans la table Gares    
     connexion = sqlite3.connect("base.db")
     curseur = connexion.cursor()
     for gare in gare_frequentation_list:
@@ -134,12 +142,19 @@ def import_data_frequentation ():
     connexion.close()
     
 def import_data_localisation():
+    """
+    Cette fonction récupère les coordonnées géographiques des gares de Paris à partir de l'API de la SNCF et les insère dans la base de données.
+    Elle met également à jour les noms des gares qui ont un alias différent dans la base de données et les objets trouvés.
+    """
+    
+    # Récupération de l'URL permettant de requêter l'API
     url_gares = "https://ressources.data.sncf.com/api/records/1.0/search/?dataset=referentiel-gares-voyageurs&q=gare_alias_libelle_noncontraint='Paris'&sort=gare_alias_libelle_noncontraint&rows=-1"
 
     response = requests.get(url_gares)
 
     gares_coord_list = []
 
+    # Récupération des données 
     if response.status_code == 200:
         data = response.json()
         for record in data['records']:
@@ -152,6 +167,7 @@ def import_data_localisation():
     else:
         print("Une erreur s'est produite lors de la requête à l'API.")
         
+    # Insertion des données dans la table Gare
     connexion = sqlite3.connect("base.db")
     curseur = connexion.cursor()
     for gare in gares_coord_list:
@@ -165,6 +181,10 @@ def import_data_localisation():
     connexion.close()
 
 def import_data_temperature():
+    """
+    Cette fonction récupère les données de température de l'API World Weather Online pour la ville de Paris.
+    Elle stocke ces données dans une base de données SQLite.
+    """
 
     load_dotenv()
     API_KEY_TEMP = os.getenv("API_KEY_TEMP")
@@ -199,20 +219,28 @@ def import_data_temperature():
             print("Une erreur s'est produite lors de la requête à l'API.")
         start_date += delta
 
+    # Insertion des données dans la table Temperatures
     connexion = sqlite3.connect("base.db")
     curseur = connexion.cursor()
     for entree in temperature_dates_list:
         date = entree[0]
         temperature = entree[1]
-
         curseur.execute("INSERT INTO Temperatures (date,temperature_moyenne) VALUES (?,?)", (date, temperature))
-
-    # Fermeture de la connexion à la base de données
     connexion.commit()
     connexion.close()
     
         
-def get_last_date(table) -> str:
+def get_last_date(table:str) -> str:
+    """
+    Récupère la dernière date enregistrée dans une table de la base de données.
+
+    Args:
+        table (str): Nom de la table.
+
+    Returns:
+        str: Date suivante sous forme de chaîne de caractères au format "AAAA-MM-JJ".
+    """
+    # Recherche dans la table la date la plus récente
     connexion = sqlite3.connect("base.db")
     curseur = connexion.cursor()
     curseur.execute(f"""SELECT MAX(date) FROM {table}""")
@@ -234,7 +262,19 @@ def get_last_date(table) -> str:
     
 
 
-def maj_db():
+def maj_db()-> None:
+    """
+    Met à jour la base de données avec les dernières données de température et d'objets.
+    
+    Cette fonction appelle les fonctions `import_data_temperature()` et `import_data_objects()`
+    pour récupérer les dernières données de température et d'objets, puis les insère dans la base de données.
+    
+    Affiche également un message indiquant que la mise à jour est en cours et un autre message
+    une fois que la mise à jour est terminée.
+    
+    Returns:
+        None
+    """
     with st.empty():
         st.write("Mise à jour en cours...")
         import_data_temperature()

@@ -15,8 +15,23 @@ import plotly.io as pio
 import sqlalchemy as db
 import datetime
 
+######  Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).
 
-def histogramme():
+def histogramme()-> None:
+    """
+    Cette fonction permet de générer un histogramme interactif Plotly représentant le nombre d'objets trouvés par semaine entre 2019 et 2022, en fonction de leur type. Les données sont extraites d'une base de données SQLite nommée 'base.db'.
+
+    Utilisation : 
+        - La fonction utilise une barre latérale pour permettre à l'utilisateur de sélectionner les types d'objets à inclure dans l'histogramme.
+        - La fonction renvoie un graphique Plotly interactif qui affiche le nombre d'objets trouvés par semaine en fonction de leur type.
+
+    Paramètres :
+        Aucun paramètre n'est nécessaire pour appeler cette fonction.
+
+    Sortie :
+        Cette fonction ne renvoie rien, elle affiche directement le graphique Plotly généré.
+
+    """
     # Se connecter à la base de données
     connexion = sqlite3.connect("base.db")
 
@@ -53,35 +68,23 @@ def histogramme():
     st.plotly_chart(fig)
 
 
-# Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).
-def line (selected_object):
-    connexion = sqlite3.connect("base.db")
-    if selected_object == "Tous":
-        df_semaine = pd.read_sql_query("""SELECT strftime('%Y-%W', date) AS semaine, COUNT(*) AS nb_objets_trouves 
-                                FROM Objets_trouves 
-                                GROUP BY semaine""", connexion)
-    else :
-        df_semaine = pd.read_sql_query(f"""SELECT strftime('%Y-%W', date) AS semaine, COUNT(*) AS nb_objets_trouves 
-                                FROM Objets_trouves 
-                                WHERE type = "{selected_object}"
-                                GROUP BY semaine""", connexion)
-
-
-    line = px.line(df_semaine, x='semaine', y='nb_objets_trouves')
-    line.update_xaxes(title_text='Date')
-    line.update_yaxes(title_text="Nombre d'objets trouvés")
-    line.update_layout(title="Nombre d'objets trouvés par semaine",width=1500)
-
-    st.plotly_chart(line, witdh=-1)
-    
-
-    connexion.close()
-
-
-# Afficher une carte de Paris avec le nombre d’objets trouvés en fonction de la fréquentation de voyageur de chaque gare. Possibilité de faire varier par année et par type d’objets
+##### Afficher une carte de Paris avec le nombre d’objets trouvés en fonction de la fréquentation de voyageur de chaque gare. Possibilité de faire varier par année et par type d’objets
 
 # Création de la requête qui récupère les données dans la base de données
-def requete(selected_year, selected_object):
+def requete(selected_year:str, selected_object:str)-> pd.DataFrame:
+    """
+    Cette fonction retourne un DataFrame contenant les informations sur les objets trouvés dans les gares d'une année donnée.
+
+    Args:
+        selected_year (str): L'année pour laquelle on souhaite récupérer les informations. Doit être sous la forme "AAAA".
+        selected_object (str, optional): Le type d'objet pour lequel on souhaite récupérer les informations. Par défaut None.
+
+    Returns:
+        pd.DataFrame: Un DataFrame contenant les informations sur les objets trouvés, triées par nom de gare.
+
+    Raises:
+        ValueError: Si l'année sélectionnée n'est pas sous la forme "AAAA".
+    """
     # Connexion à la base de données
     connexion = sqlite3.connect("base.db")
     # Pour tous les types d'objets confondus
@@ -108,7 +111,16 @@ def requete(selected_year, selected_object):
 
 
 # Détermination de la couleur des markers en fonction de la fréquentation de la gare
-def get_color(frequentation):
+def get_color(frequentation:float):
+    """
+    Renvoie la couleur correspondant au niveau de fréquentation de la gare.
+    
+    Args:
+        frequentation (float): le niveau de fréquentation de la gare pour laquelle on souhaite récupérer la couleur.
+    
+    Returns:
+        str: la couleur correspondant au niveau de fréquentation de la gare (vert, jaune, orange ou rouge).
+    """
     df = requete(selected_year,selected_object)
     if frequentation < np.percentile(df['frequentation_gare'],25):
         return "green"
@@ -120,7 +132,17 @@ def get_color(frequentation):
         return "red"
 
 # Affichage de la carte 
-def show_map(df):
+def show_map(df:pd.DataFrame) -> None:
+    """ Cette fonction prend en entrée un dataframe contenant les informations sur les gares à afficher sur une carte.
+    Elle crée une carte interactive en utilisant la librairie Folium. La taille des cercles varie en fonction du nombre d'objets perdus, et leur couleur
+    dépend de la fréquentation de chaque gare. La fonction retourne ensuite la carte.
+
+    Args:
+    - df : pandas.DataFrame : Le dataframe contenant les informations sur les gares à afficher sur la carte.
+    
+    Returns:
+    - None : la fonction affiche directement la carte dans l'interface Streamlit grâce à la fonction folium_static.
+    """
     # Création de la carte 
     carte = folium.Map(location=[48.864716, 2.349014], zoom_start=12)
     
@@ -153,8 +175,11 @@ def show_map(df):
 #### Afficher le nombre d’objets trouvés en fonction de la température sur un scatterplot. Est ce que le nombre d’objets perdus est corrélé à la temperature d'après ce graphique?
 
 
-def scatterplot():
-    
+def scatterplot() -> None:
+    """
+    Crée un scatterplot représentant le nombre d'objets trouvés en fonction de la température.
+    Affiche également une droite de régression linéaire et le coefficient de détermination R².
+    """
     # Connexion à la base de données
     connexion = sqlite3.connect("base.db")
     curseur = connexion.cursor()
@@ -205,8 +230,10 @@ def scatterplot():
     
 ### Quelle est la médiane du nombre d’objets trouvés en fonction de la saison? Il y a t il une correlation entre ces deux variables d'après le graphique?
     
-def saison():
-
+def saison() -> None:
+    """
+    Cette fonction met à jour la colonne saison de la table "Objets_trouves" pour afficher la saison correspondant à la date et affiche un graphique montrant la médiane journalière du nombre d'objets perdus par saison.
+    """
     # Connexion à la base de données
     connexion = sqlite3.connect("base.db")
     curseur = connexion.cursor()
@@ -254,7 +281,10 @@ def saison():
 
 
 ### Affichez le nombre d'objets trouvés en fonction du type de d'objet et de la saison sur un graphique. Il y a t il une correlation entre ces deux variables d'après le graphique?
-def groupbar():
+def groupbar() -> None:
+    """
+    Crée un graphique à barres groupées pour représenter le nombre d'objets trouvés selon leur type et leur saison.
+    """
     # Connexion à la base de données
     connexion = sqlite3.connect("base.db")
 
@@ -279,27 +309,12 @@ def groupbar():
     connexion.close()
     st.plotly_chart(fig,use_container_width=True)
     
-def scatterplot_2():
-    # Connexion à la base de données
-    connexion = sqlite3.connect("base.db")
 
-    # Récupération des données à partir de la base de données
-    df = pd.read_sql_query("""SELECT Objets_trouves.type, Objets_trouves.saison, COUNT(id) AS nb_objets
-                            FROM Objets_trouves
-                            GROUP BY type, saison;""", connexion)
-    
-    s = px.scatter(data_frame=df, x=df['type'], y=df['nb_objets'],color=df['saison'])
-    connexion.close()
-    st.plotly_chart(s, use_container_width=True)
-    
-    
-
-def boxplot():
-    import sqlite3
-import pandas as pd
-import plotly.express as px
-
-def boxplot():
+def boxplot() -> None:
+    """
+    Cette fonction récupère les données de la base de données et affiche un graphique de barres de la médiane du nombre
+    d'objets trouvés en fonction de la saison.
+    """
     # Connexion à la base de données
     connexion = sqlite3.connect("base.db")
 
@@ -321,8 +336,12 @@ def boxplot():
     # Fermer la connexion à la base de données
     connexion.close()
     
-def barres_empilées():
-    
+def barres_empilées()-> None:
+    """
+    Cette fonction récupère les données des objets trouvés dans la base de données "base.db" 
+    et affiche un graphique à barres empilées qui montre la proportion d'objets trouvés par 
+    saison et par type d'objet.
+    """
     # Connexion à la base de données
     conn = sqlite3.connect("base.db")
 
@@ -374,7 +393,14 @@ def barres_empilées():
     # Affichage du graphique
     st.plotly_chart(fig,use_container_width=True)
 
-def line_saison():
+def line_saison() -> None:
+    """
+    Affiche un graphique en courbes représentant l'évolution du nombre d'objets trouvés en fonction de la saison.
+
+    La fonction se connecte à une base de données SQLite, récupère les données relatives aux objets trouvés et les
+    transforme en un DataFrame. Elle utilise ensuite la librairie Plotly pour créer le graphique en courbes, avec une
+    courbe pour chaque type d'objet.
+    """
     # Connexion à la base de données
     connexion = sqlite3.connect('base.db')
     
@@ -398,8 +424,21 @@ def line_saison():
 
 
 
-def saison_boxplot():
+def saison_boxplot() -> None:
+    """
+    Crée un boxplot du nombre d'objets trouvés en fonction de la saison.
 
+    Cette fonction récupère les données nécessaires depuis la base de données, met à jour la colonne saison de la table Objets_trouves
+    avec le nom de la saison correspondant à la date,
+    puis calcule le nombre d'objets trouvés pour chaque saison. Elle utilise ensuite la librairie plotly pour créer un graphique
+    en boxplot représentant la distribution du nombre d'objets trouvés pour chaque saison.
+
+    Args:
+        Aucun argument n'est requis.
+
+    Returns:
+        Cette fonction ne retourne rien, elle affiche uniquement le graphique en boxplot avec la librairie plotly.
+    """
     # Connexion à la base de données
     connexion = sqlite3.connect("base.db")
     curseur = connexion.cursor()
@@ -439,11 +478,13 @@ def saison_boxplot():
     st.plotly_chart(boxplot,use_container_width=False)
 
 
+#### Affichage du streamlit 
 
-
+# Configuration de la page et titre du streamlit
 st.set_page_config(layout="wide")
 st.title("Brief Lost in Translation")
 
+# Affichage du bouton pour mettre à jour les données
 date = get_last_date("Objets_trouves")
 if datetime.datetime.strptime(date, "%Y-%m-%d").date() < datetime.date.today():
     st.write(f"La dernière mise à jour date du {date}.")
@@ -453,11 +494,11 @@ else :
     st.write(f"Les données sont à jour.")
 
 
+# Question 1 
 st.write("<h2> Calculez entre 2019 et 2022 la somme du nombre d’objets trouvés par semaine. Afficher sur un histogramme plotly la répartition de ces valeurs. (un point correspond à une semaine dont la valeur est la somme). (On peut choisir d’afficher ou non certains types d’objet).</h2>",unsafe_allow_html = True)
-
 histogramme()
 
-
+# Question 2 
 st.write("<h2>Afficher une carte de Paris avec le nombre d’objets trouvés en fonction de la fréquentation de voyageur de chaque gare. Possibilité de faire varier par année et par type d’objets</h2>", unsafe_allow_html=True)
 options_year = ["2019","2020","2021","2022"]
 selected_year = st.selectbox("Sélectionnez une année", options_year)
@@ -465,22 +506,26 @@ options_object = ["Porte-monnaie / portefeuille, argent, titres","Livres, articl
 selected_object = st.selectbox("Sélectionnez un type d'objet", options_object,key="object2")
 show_map(requete(selected_year,selected_object))
 
+# Question 3 
 st.write("<h2>Afficher le nombre d’objets trouvés en fonction de la température sur un scatterplot. Est ce que le nombre d’objets perdus est corrélé à la temperature d'après ce graphique?</h2>",unsafe_allow_html=True)
 scatterplot()
 st.write("Il n'y a pas de corrélation entre la température et le nombre d'objets trouvés.")
 
+# Question 4 
 st.write("<h2>Quelle est la médiane du nombre d’objets trouvés en fonction de la saison? Il y a t il une correlation entre ces deux variables d'après le graphique?</h2>",unsafe_allow_html=True)
 saison()
-st.write("Il n'y a pas de corrélation entre la saison et le nombre d'objets trouvés.")
 saison_boxplot()
+st.write("Il n'y a pas de corrélation entre la saison et le nombre d'objets trouvés.")
+
+# Question 5 
 st.write("<h2>Affichez le nombre d'objets trouvés en fonction du type de d'objet et de la saison sur un graphique. Il y a t il une correlation entre ces deux variables d'après le graphique?</h2>",unsafe_allow_html=True)
 groupbar()
-st.write("Il n'y a pas de corrélation entre la saison et le type d'objets trouvés.")
-
 line_saison()
 barres_empilées()
+st.write("Il n'y a pas de corrélation entre la saison et le type d'objets trouvés.")
 
-st.write("<h2>Conclusion : Il ne semble pas y avoir de corrélations entre la saison et le type d'objets perdus. Les variations sont très faibles.</h2>",unsafe_allow_html=True)
+# Conclusion 
+st.write("<h2>Conclusion : Il ne semble pas y avoir de corrélations entre la saison, la température et le type ou le nombre d'objets perdus. Les variations sont très faibles. Il faudrait mettre en parallèle la fréquentation.</h2>",unsafe_allow_html=True)
 
 
 
